@@ -1,0 +1,29 @@
+# Nigeria Fuel Price Intelligence System
+# PGD Dissertation — Python Dependencies
+# Install: pip install -r requirements.txt
+
+# ── SQL Data Engineering ──────────────────────────────────────────────────────
+duckdb>=0.10.0
+
+# ── Data Manipulation ─────────────────────────────────────────────────────────
+pandas>=2.0.0
+numpy>=1.26.0
+
+# ── Machine Learning ──────────────────────────────────────────────────────────
+torch>=2.0.0
+scikit-learn>=1.4.0
+
+# ── Change-Point Detection ────────────────────────────────────────────────────
+ruptures>=1.1.9
+
+# ── Visualisation (Plotly) ────────────────────────────────────────────────────
+plotly>=5.20.0
+kaleido>=0.2.1          # static PNG/SVG export for thesis figures
+
+# ── Jupyter ───────────────────────────────────────────────────────────────────
+jupyterlab>=4.0.0
+ipykernel>=6.0.0
+
+# ── real exogenous data fetching ────────────────────────────────────
+pandas-datareader>=0.10.0   # FRED (Brent crude, FX)
+requests>=2.31.0             # CBN API calls
