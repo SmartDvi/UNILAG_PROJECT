@@ -1,7 +1,48 @@
 [project]
 name = "uni-lag-project"
-version = "0.1.0"
-description = "Add your description here"
+version = "0.2.0"
+description = "Nigeria Retail Fuel Price Intelligence System — End-to-end ML pipeline for fuel price forecasting, structural analysis, and MSME early warnings"
 readme = "README.md"
-requires-python = ">=3.12"
-dependencies = []
+requires-python = ">=3.10"
+dependencies = [
+    "duckdb>=0.10.0",
+    "pandas>=2.0.0",
+    "numpy>=1.26.0",
+    "torch>=2.0.0",
+    "scikit-learn>=1.4.0",
+    "ruptures>=1.1.9",
+    "plotly>=5.20.0",
+    "kaleido>=0.2.1",
+    "jupyterlab>=4.0.0",
+    "ipykernel>=6.0.0",
+    "pandas-datareader>=0.10.0",
+    "requests>=2.31.0",
+]
+authors = [{name = "Your Name", email = "your.email@example.com"}]
+keywords = ["fuel-prices", "nigeria", "time-series", "lstm", "forecasting", "data-engineering"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Policy Makers",
+    "Topic :: Scientific/Engineering :: Information Analysis",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+]
+
+[project.optional-dependencies]
+dev = [
+    "black>=23.0.0",
+    "pylint>=2.17.0",
+    "pytest>=7.0.0",
+]
+
+[project.scripts]
+uni-lag = "main:main"
+
+[build-system]
+requires = ["setuptools>=68.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+packages = ["src"]
