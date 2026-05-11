@@ -1,6 +1,6 @@
 # 🇳🇬 Nigeria Retail Fuel Price Intelligence System
 
-> **PGD Dissertation Project — Distinction Track**  
+> **Uni Dissertation Project — Distinction Track**  
 > An end-to-end data engineering and machine learning pipeline for forecasting Nigeria's retail petrol prices, detecting structural market breaks, and generating actionable intelligence for policymakers and MSMEs.
 
 ---
@@ -215,7 +215,7 @@ This suppresses noise from spatially interpolated LGA observations, making the m
 ```
 nigeria-fuel-price-intelligence/
 │
-├── 📓 nigeria_fuel_pgd_plotly.ipynb   # Main dissertation notebook
+├── 📓 nigeria_fuel_price.ipynb   # Main dissertation notebook
 │
 ├── 📄 README.md                        # This file
 │
@@ -289,7 +289,7 @@ DATA_PATH = Path("data/real-time-energy-prices-for-nigeria.csv")
 jupyter lab
 ```
 
-Open `nigeria_fuel_pgd_plotly.ipynb` and run all cells top-to-bottom (`Kernel → Restart & Run All`).
+Open `nigeria_fuel_price.ipynb` and run all cells top-to-bottom (`Kernel → Restart & Run All`).
 
 ---
 
@@ -463,6 +463,6 @@ This project is licensed under the **MIT License** — see [LICENSE](LICENSE) fo
 
 Built for academic distinction. Designed for real-world policy impact.
 
-**Nigeria Fuel Price Intelligence System** · PGD Dissertation · 2026
+**Nigeria Fuel Price Intelligence System** ·  Dissertation · 2026
 
 </div>
