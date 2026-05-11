@@ -250,14 +250,15 @@ nigeria-fuel-price-intelligence/
 ### 1. Clone the repository
 
 ```bash
-git clone https://github.com/<your-username>/nigeria-fuel-price-intelligence.git
-cd nigeria-fuel-price-intelligence
+git clone hhttps://github.com/SmartDvi/UNILAG_PROJECT.git
+cd UNILAG_PROJECT
 ```
 
 ### 2. Create a virtual environment
 
 ```bash
-python -m venv .venv
+uv init
+uv venv
 
 # macOS / Linux
 source .venv/bin/activate
@@ -269,10 +270,10 @@ source .venv/bin/activate
 ### 3. Install dependencies
 
 ```bash
-pip install -r requirements.txt
+uv pip install -r requirements.txt
 ```
 
-Or let the notebook install them automatically — the K0 cell runs `pip install` for all packages.
+Or let the notebook install them automatically — the K0 cell runs `uv pip install` for all packages.
 
 ### 4. Add the dataset
 
@@ -300,18 +301,24 @@ The notebook ships with synthetic placeholders for three exogenous variables. Re
 
 ```python
 #  — CBN official rate
-# Download from: https://www.cbn.gov.ng/rates/ExchRateByCurrency.asp
+# Download from: https://ng.investing.com/currencies/usd-ngn-historical-data
 usd_ngn = pd.read_csv("exogenous/usd_ngn_rate.csv", parse_dates=["date"])
 lstm_df = lstm_df.merge(usd_ngn, left_on="price_date", right_on="date", how="left")
 
 # Option B — pandas_datareader (FRED official rate proxy)
+usd_ngn = pd.read_csv("exogenous/usd_ngn_rate.csv", parse_dates=["date"])
 import pandas_datareader.data as pdr
 usd_ngn = pdr.get_data_fred("NAEXKP01NGA652S", start="2023-01-01")
 ```
 
 ### Brent Crude Price (USD/bbl)
 
+
 ```python
+# Download from: https://fred.stlouisfed.org/series/DCOILBRENTEU
+usd_ngn = pd.read_csv("DCOILBRENTEU.csv", parse_dates=["date"])
+
+# Alternatively 
 import pandas_datareader.data as pdr
 brent = pdr.get_data_fred("DCOILBRENTEU", start="2023-01-01")
 brent = brent.resample("MS").mean()  # resample to monthly
