@@ -1,0 +1,6 @@
+Model,MAE (₦/L),RMSE (₦/L),MAPE (%),Bias (₦/L),Direction correct (%),DM stat vs naive,DM p-value
+Naive (no change),15.081,20.102,5.045,10.445,,,
+Drift (6-month mean),13.877,18.433,4.793,0.945,54.167,-0.411,0.685
+"ARIMA(1, 0, 0)",12.345,16.126,4.222,6.66,75.0,-2.38,0.026
+Ridge regression,12.181,16.189,4.27,6.659,58.333,-2.196,0.038
+LSTM ensemble (h=64),11.452,15.408,4.116,6.45,66.667,-2.325,0.029

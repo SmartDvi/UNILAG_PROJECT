@@ -1,29 +1,29 @@
-# Nigeria Fuel Price Intelligence System
-# PGD Dissertation — Python Dependencies
-# Install: pip install -r requirements.txt
+# Nigeria retail petrol price analysis — Python dependencies
+# Install: pip install -r requirements.txt   (or: uv pip install -r requirements.txt)
+# Versions below are the minimum tested; the notebook was last run with the
+# versions noted in brackets.
 
-# ── SQL Data Engineering ──────────────────────────────────────────────────────
-duckdb>=0.10.0
+duckdb>=1.0          # SQL data engineering            [1.5.2]
+pandas>=2.2          # data frames                     [3.0.2]
+numpy>=1.26          # numerics                        [2.4.4]
+scipy>=1.11          # correlation tests, DM test      [installed with statsmodels]
+matplotlib>=3.8      # figures                         [3.10.9]
+ruptures>=1.1.9      # PELT change-point detection     [1.1.10]
+statsmodels>=0.14    # ARIMA benchmark                 [0.15.0]
+scikit-learn>=1.4    # scaling, ridge benchmark        [1.8.0]
+torch>=2.2           # LSTM                            [2.11.0]
 
-# ── Data Manipulation ─────────────────────────────────────────────────────────
-pandas>=2.0.0
-numpy>=1.26.0
+# Dashboard
+dash>=3.0                    # web app framework              [4.4.1]
+dash-mantine-components>=2.0 # UI components (Mantine)        [2.8.0]
+dash-ag-grid>=31.0           # interactive tables             [35.3.0]
+dash-iconify>=0.1.2          # icons                          [0.1.2]
+plotly>=5.24                 # charts (scatter_map needs 5.24+) [6.7.0]
 
-# ── Machine Learning ──────────────────────────────────────────────────────────
-torch>=2.0.0
-scikit-learn>=1.4.0
+# Notebook execution
+ipykernel>=6.0
+nbconvert>=7.0
+jupyterlab>=4.0      # optional, for interactive use
 
-# ── Change-Point Detection ────────────────────────────────────────────────────
-ruptures>=1.1.9
-
-# ── Visualisation (Plotly) ────────────────────────────────────────────────────
-plotly>=5.20.0
-kaleido>=0.2.1          # static PNG/SVG export for thesis figures
-
-# ── Jupyter ───────────────────────────────────────────────────────────────────
-jupyterlab>=4.0.0
-ipykernel>=6.0.0
-
-# ── real exogenous data fetching ────────────────────────────────────
-pandas-datareader>=0.10.0   # FRED (Brent crude, FX)
-requests>=2.31.0             # CBN API calls
+# Tests
+pytest>=8.0

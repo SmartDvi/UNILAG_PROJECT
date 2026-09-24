@@ -1,437 +1,137 @@
-# 🇳🇬 Nigeria Retail Fuel Price Intelligence System
+# Nigeria Retail Petrol Prices, 2007–2026
 
-> **Uni Dissertation Project — Distinction Track**  
-> An end-to-end data engineering and machine learning pipeline for forecasting Nigeria's retail petrol prices, detecting structural market breaks, and generating actionable intelligence for policymakers and MSMEs.
+Regime analysis, regional disparity and short-term forecasting of retail petrol prices in Nigeria, built as an end-to-end pipeline: SQL data engineering in DuckDB, descriptive and change-point analysis, and a forecasting comparison of an LSTM against statistical benchmarks.
 
----
-
-[![Python](https://img.shields.io/badge/Python-3.10%2B-3776AB?style=flat-square&logo=python&logoColor=white)](https://python.org)
-[![DuckDB](https://img.shields.io/badge/DuckDB-0.10%2B-FFA500?style=flat-square&logo=duckdb&logoColor=white)](https://duckdb.org)
-[![PyTorch](https://img.shields.io/badge/PyTorch-2.x-EE4C2C?style=flat-square&logo=pytorch&logoColor=white)](https://pytorch.org)
-[![Plotly](https://img.shields.io/badge/Plotly-5.20%2B-3F4F75?style=flat-square&logo=plotly&logoColor=white)](https://plotly.com)
-[![Jupyter](https://img.shields.io/badge/Jupyter-Notebook-F37626?style=flat-square&logo=jupyter&logoColor=white)](https://jupyter.org)
-[![License: MIT](https://img.shields.io/badge/License-MIT-22C55E?style=flat-square)](LICENSE)
+The full analysis, with code, figures and interpretation, is in [nigeria_fuel_price.ipynb](nigeria_fuel_price.ipynb). An interactive, multipage [dashboard](#dashboard) lets readers explore the results themselves.
 
 ---
 
-## Table of Contents
+## Key findings
 
-- [Project Overview](#project-overview)
-- [Research Questions](#research-questions)
-- [Dataset](#dataset)
-- [Architecture](#architecture)
-- [Kernel Map](#kernel-map)
-- [Key Insights Implemented](#key-insights-implemented)
-- [Tech Stack](#tech-stack)
-- [Project Structure](#project-structure)
-- [Getting Started](#getting-started)
-- [Data Sources](#data-sources)
-- [Outputs](#outputs)
-- [Model Architecture](#model-architecture)
-- [Results](#results)
-- [Policy Applications](#policy-applications)
-- [Thesis Citation](#thesis-citation)
-- [References](#references)
-- [License](#license)
+1. **The data is regional, not national.** The source file has 67 individual markets in 14 states, and 79% of them are in Borno, Yobe and Adamawa. It also contains 7 aggregate series that must be excluded to avoid double-counting. All national figures use a *state-balanced* index, in which each state counts once.
+2. **Subsidy removal changed price behaviour.** From Jun 2023 to Aug 2024 the index rose 5.1% per month on average (0.6% under regulation), and 8 of 15 months had a rise above 5%. After domestic refining began (Sep 2024), growth slowed to 2.1% per month and only 2 of 20 months had such a rise.
+3. **States are drifting apart.** The cross-state coefficient of variation averaged 7.5% under regulation and 15.1% since Sep 2024, peaking near 30% in early 2026. Borno's premium over the index rose from +6.8% to +22.2%.
+4. **Data-driven breaks are March 2016, January 2022 and December 2023** (PELT on log prices, stable across penalties 0.5–2). The June 2023 policy date is not itself a break in this series.
+5. **Simple models are as good as, or better than, the LSTM.** On the held-out test period (May 2024 – Apr 2026):
 
----
+   | Model | Test MAPE | Test MAE (₦/L) | Better than naive? (Diebold–Mariano) |
+   |---|---|---|---|
+   | Naive (no change) | 2.27% | 12.64 | – |
+   | Drift | 2.54% | 13.45 | no (p = 0.71) |
+   | **ARIMA(1,0,0) on returns** | **1.94%** | **10.79** | **yes (p = 0.016)** |
+   | Ridge regression | 2.09% | 11.55 | no (p = 0.22) |
+   | LSTM ensemble (5 seeds) | 2.74% | 15.61 | no, slightly worse (p = 0.054) |
 
-## Project Overview
+6. **The trust-weighted loss has no measurable effect.** The trust score only ranges from 9.7 to 10 (on a 0–10 scale), so the weights differ by less than 1%.
 
-Nigeria's retail fuel market underwent a historic structural transformation in May 2023 when the incoming Tinubu administration removed decades-old petroleum subsidies. This event — combined with the Dangote Refinery coming online in 2024 — shifted the market from a state-controlled import monopoly (NNPCL) to an **asymmetric duopoly** with volatile, market-reflective pricing.
-
-This project builds a **production-grade forecasting and intelligence system** that:
-
-- Engineers a clean analytical data warehouse from raw WFP price data using **SQL (DuckDB)**
-- Detects structural market breaks using the **PELT change-point detection algorithm**
-- Trains a **2-layer multivariate LSTM** with a custom trust-weighted loss function
-- Generates a **3-month early-warning fuel price forecast** to help MSMEs hedge logistics costs
-- Maps **regional price disparities** to support targeted government cash-transfer programmes
-- Produces **fully interactive Plotly visualisations** for all analytical outputs
+**Important caveat:** the prices are model-based estimates. After subsidy removal they sit well below reported official pump prices; for example, Lagos is ₦256/L in June 2023 against roughly ₦488–568/L reported. Treat naira levels as levels of this series, not as pump prices. See section K2 of the notebook.
 
 ---
 
-## Research Questions
+## Project structure
 
-1. **Duopoly Shift** — Can data distinguish price hikes caused by global crude shocks (external) from domestic refinery bottlenecks (internal)?
-2. **MSME Vulnerability** — Which months trigger a "volatility squeeze" where MoM price surges erode MSME profit margins?
-3. **Regional Disparity** — Which Nigerian states pay a persistent premium above the national average, and by how much?
-4. **Structural Break** — Where does the data-driven regime boundary fall, and how does it differ from the policy date (May 2023)?
-5. **Forecasting** — Can a trust-weighted, post-subsidy-only LSTM predict prices 30 days in advance with MAPE < 5%?
+```
+UNI_LAG_PROJECT/
+├── nigeria_fuel_price.ipynb     # the analysis (K0–K10), executed with outputs
+├── main.py                      # runs the notebook (--test) or the dashboard (--dashboard)
+├── dashboard/                   # Dash + Dash Mantine Components + Dash AG Grid app
+│   ├── app.py                   #   app shell, navigation, entry point
+│   ├── data.py                  #   loads outputs/tables, shared calculations
+│   ├── components.py            #   cards, insight callouts, date controls, grids
+│   └── pages/                   #   one module per page (8 pages)
+├── src/fuel_forecast/           # reusable code imported by the notebook
+│   ├── config.py                #   paths, policy dates, split dates, seeds
+│   ├── exogenous.py             #   USD/NGN and Brent loaders (monthly)
+│   ├── features.py              #   returns, sliding windows, chronological split
+│   ├── models.py                #   LSTM, trust-weighted loss, training loop
+│   ├── baselines.py             #   naive, drift, ARIMA, ridge benchmarks
+│   ├── evaluation.py            #   metrics, Diebold–Mariano test
+│   └── plotting.py              #   figure style and saving
+├── tests/
+│   ├── test_pipeline.py         # unit tests (date parsing, leakage, loss, metrics)
+│   └── test_dashboard.py        # every dashboard callback runs for many control settings
+├── data/
+│   ├── raw/                     # source files (committed)
+│   └── processed/               # DuckDB database (generated, git-ignored)
+├── outputs/
+│   ├── figures/                 # all figures (PNG)
+│   ├── tables/                  # result tables (CSV)
+│   └── models/                  # LSTM weights, one file per seed
+├── MODEL_CARD.md
+├── REPRODUCIBILITY.md
+├── requirements.txt
+└── pyproject.toml
+```
 
----
+## Quick start
 
-## Dataset
+```bash
+uv venv && source .venv/bin/activate      # or: python -m venv .venv
+uv pip install -r requirements.txt        # or: pip install -r requirements.txt
+python main.py --test                     # run unit tests, then execute the notebook
+```
 
-| Field | Detail |
-|---|---|
-| **Source** | [WFP VAM Real-Time Energy Prices](https://dataviz.vam.wfp.org/economic_explorer/fuel-prices) |
-| **Coverage** | Nigeria — January 2007 to April 2026 |
-| **Granularity** | Monthly, by market (LGA level) |
-| **Rows** | 17,168 |
-| **Columns** | 55 (8 usable after null audit) |
-| **Key columns** | `o/h/l/c_fuel_petrol_gasoline`, `trust_fuel_petrol_gasoline`, `inflation_fuel_petrol_gasoline`, `adm1_name`, `adm2_name`, `geo_id` |
-| **Currency** | Nigerian Naira (₦ per litre) |
+Then start the dashboard with `python main.py --dashboard` and open <http://127.0.0.1:8050>.
 
-### Column Coverage Summary
+To work interactively, run `jupyter lab` **from the project root** and open the notebook. The full run takes about one minute on a laptop CPU. See [REPRODUCIBILITY.md](REPRODUCIBILITY.md) for details.
 
-| Column Group | Coverage | Decision |
+## Dashboard
+
+A multipage web app built with **Dash**, **Dash Mantine Components** (layout, inputs, cards) and **Dash AG Grid** (every table: sortable, filterable, paginated, CSV export). It reads the tables the notebook writes to `outputs/tables/`, so run the notebook first.
+
+```bash
+python main.py --dashboard            # or: python -m dashboard.app [--debug] [--port 8050]
+```
+
+| Page | What you can do | Controls |
 |---|---|---|
-| `o/h/l/c_fuel_petrol_gasoline` | 100% | ✅ Retain — core OHLC series |
-| `trust_fuel_petrol_gasoline` | 100% | ✅ Retain — custom loss weight |
-| `inflation_fuel_petrol_gasoline` | 94.8% | ✅ Retain — linear interpolation applied |
-| `fuel_petrol_gasoline` (raw) | 7.7% | ⚠️ Use only for validation |
-| `fuel_diesel / gas / kerosene` | 0% | 🗑️ Dropped |
-| `fuel_petrol_gasoline_95_octane` | 0% | 🗑️ Dropped |
-| `fuel_super_petrol` | 0% | 🗑️ Dropped |
-
----
-
-## Architecture
-
-```
-┌─────────────────────────────────────────────────────────────────────┐
-│                    DATA PIPELINE (DuckDB SQL)                        │
-│                                                                     │
-│  CSV File  ──►  raw_fuel_prices  ──►  clean_fuel_prices             │
-│                     (K1)                     (K2)                   │
-│                                               │                     │
-│                               ┌───────────────▼──────────────────┐  │
-│                               │     engineered_features (K3)     │  │
-│                               │  • OHLC derivatives              │  │
-│                               │  • Lag features (1,3,6,12m)      │  │
-│                               │  • Rolling stats (3m, 12m)       │  │
-│                               │  • MoM / YoY % change            │  │
-│                               │  • Cyclical month encoding       │  │
-│                               │  • Regime flag (PELT)            │  │
-│                               └───────────────┬──────────────────┘  │
-└───────────────────────────────────────────────┼─────────────────────┘
-                                                │
-              ┌─────────────────────────────────┼───────────────────┐
-              │         ANALYTICAL LAYER        │                   │
-              │                                 ▼                   │
-              │  K4: Duopoly Analysis    K5: MSME Volatility        │
-              │  K6: Regional Disparity  K7: PELT Break Detection   │
-              └─────────────────────────────────┬───────────────────┘
-                                                │
-              ┌─────────────────────────────────▼───────────────────┐
-              │              ML LAYER (PyTorch)                     │
-              │                                                     │
-              │  K8: Sliding-window Dataset (6-month window)        │
-              │  K9: 2-Layer LSTM + Trust-Weighted MSE Loss         │
-              │      AdamW + ReduceLROnPlateau + Early Stopping     │
-              │  K10: Evaluation + 3-Month Forward Forecast         │
-              └─────────────────────────────────────────────────────┘
-```
-
----
-
-## Kernel Map
-
-| Kernel | ID | Purpose | Key Output |
-|---|---|---|---|
-| K0 | `k0-install` / `k0-imports` | Environment, palette, Plotly theme | Global `apply_theme()` helper |
-| K1 | `k1-ingest` / `k1-summary` | DuckDB ingestion, SQL schema audit | `raw_fuel_prices` table |
-| K2 | `k2-null-audit` / `k2-clean-table` / `k2-interpolate` | NULL audit, clean table, interpolation | `clean_fuel_prices` table |
-| K3 | `k3-features` | SQL window-function feature engineering | `engineered_features` table |
-| K4 | `k4-duopoly` | Asymmetric duopoly analysis | Candlestick + dispersion chart |
-| K5 | `k5-msme` | MSME volatility squeeze + PMI correlation | Spike detection chart |
-| K6 | `k6-regional` | Regional price disparity | State bar chart + treemap |
-| K7 | `k7-pelt` | PELT structural break detection | Regime segmentation chart |
-| K8 | `k8-prepare` / `k8-dataset-arch` | Feature prep, Dataset class, LSTM architecture | `NigeriaFuelLSTM` model |
-| K9 | `k9-loss-viz` / `k9-train` | Trust-weighted loss + training loop | `best_nigeria_lstm.pt` |
-| K10 | `k10-eval` / `k10-forecast` | Evaluation + 3-month forecast | Forecast chart + CSVs |
-
----
-
-## Key Insights Implemented
-
-### Economic Insights (Policy & Strategy)
-
-#### Insight 1 — Asymmetric Duopoly Shift (K4)
-The 2024–2026 period represents a shift from an NNPCL import monopoly to an NNPCL + Dangote Refinery duopoly. Cross-market price standard deviation rises sharply post-2024, distinguishing external (Brent crude) shocks from internal (domestic supply) bottlenecks. This helps the **FCCPC** identify price manipulation vs. genuine cost pass-through.
-
-#### Insight 2 — Volatility Squeeze on MSMEs (K5)
-Months where MoM price change exceeds 5% are flagged as "MSME spike months." Rolling 6-month volatility charts define the planning horizon. When integrated with Stanbic IBTC PMI data, the model quantifies the **Cost-Push PMI Transmission Lag**. Replace the synthetic PMI series before thesis submission.
-
-#### Insight 3 — Regional Price Disparity (K6)
-SQL aggregation surfaces state-level price premiums above the national average. An interactive treemap and ranked bar chart reveal which geopolitical zones are persistently above average — candidate targets for **Social Safety Net cash-transfer programmes**.
-
----
-
-### ML Engineering Insights (Technical)
-
-#### Insight 4 — Structural Break Detection (K7)
-The **PELT algorithm** (`ruptures`, RBF cost function, `pen=15`) detects change-points objectively rather than relying on the policy date. The detected boundary updates the `pelt_regime` column in DuckDB and is used to filter training data to the post-subsidy regime only.
-
-#### Insight 5 — Multivariate LSTM with Lagged Exogenous Features (K8–K9)
-A 6-month sliding window of 14 features feeds a 2-layer stacked LSTM:
-
-```
-Input features:  price_open, price_high, price_low, spread, momentum,
-                 mom_pct, roll_mean_3m, roll_std_12m, fuel_inflation_mom,
-                 trust_score, month_sin, month_cos,
-                 usd_ngn_rate*, brent_crude*
-                 (* replace with real CBN / FRED data)
-```
-
-Pump prices react to FX and crude prices with a **2–4 week lag** — the 6-month window captures this signal.
-
-#### Insight 6 — Trust-Weighted Custom Loss Function (K9)
-
-```python
-class TrustWeightedMSELoss(nn.Module):
-    """
-    L = mean( trust_norm × (ŷ − y)² )
-    trust_norm = trust / (mean(trust) + ε)
-
-    trust = 1.0  →  verified NBS/WFP survey  →  full gradient
-    trust = 0.3  →  spatially interpolated   →  30% gradient
-    trust = 0.0  →  unknown provenance       →  no gradient
-    """
-```
-
-This suppresses noise from spatially interpolated LGA observations, making the model learn primarily from **high-confidence survey data**.
-
----
-
-## Tech Stack
-
-| Layer | Tool | Version | Purpose |
-|---|---|---|---|
-| SQL Engine | DuckDB | ≥ 0.10 | In-process data warehouse, all ETL |
-| Data | Pandas | ≥ 2.0 | Interpolation, pandas↔DuckDB bridge |
-| ML Framework | PyTorch | ≥ 2.0 | LSTM, custom loss, training loop |
-| Change-point | Ruptures | ≥ 1.1 | PELT algorithm |
-| Scaling | scikit-learn | ≥ 1.4 | MinMaxScaler, metrics |
-| Visualisation | Plotly | ≥ 5.20 | All interactive charts |
-| Static export | Kaleido | latest | PNG/SVG thesis figures |
-| Notebook | JupyterLab | ≥ 4.0 | Interactive development |
-
----
-
-## Project Structure
-
-```
-nigeria-fuel-price-intelligence/
-│
-├── 📓 nigeria_fuel_price.ipynb   # Main dissertation notebook
-│
-├── 📄 README.md                        # This file
-│
-├── 📁 data/
-│   └── real-time-energy-prices-for-nigeria.csv   # WFP source data (add here)
-│
-├── 📁 outputs/
-│   ├── best_nigeria_lstm.pt                      # Best model checkpoint
-│   ├── nigeria_fuel_engineered_features.csv      # Full feature table export
-│   └── nigeria_fuel_3m_forecast.csv              # 3-month forward forecast
-│
-├── 📁 figures/                                   # Auto-generated by notebook
-│   ├── k4_duopoly_candlestick.png
-│   ├── k5_msme_volatility.png
-│   ├── k6_regional_disparity.png
-│   ├── k7_structural_break.png
-│   ├── k9_trust_loss_surface.png
-│   └── k10_predicted_vs_actual.png
-│
-├── 📁 exogenous/                                 # Add real data here
-│   ├── usd_ngn_rate.csv                          # CBN / ABOKIFX FX series
-│   ├── brent_crude.csv                           # EIA / FRED DCOILBRENTEU
-│   └── stanbic_pmi.csv                           # Stanbic IBTC PMI monthly
-│
-└── requirements.txt                              # Python dependencies
-```
-
----
-
-## Getting Started
-
-### 1. Clone the repository
-
-```bash
-git clone hhttps://github.com/SmartDvi/UNILAG_PROJECT.git
-cd UNILAG_PROJECT
-```
-
-### 2. Create a virtual environment
-
-```bash
-uv init
-uv venv
-
-# macOS / Linux
-source .venv/bin/activate
-
-# Windows
-.venv\Scripts\activate
-```
-
-### 3. Install dependencies
-
-```bash
-uv pip install -r requirements.txt
-```
-
-Or let the notebook install them automatically — the K0 cell runs `uv pip install` for all packages.
-
-### 4. Add the dataset
-
-Download `real-time-energy-prices-for-nigeria.csv` from the WFP VAM portal and place it in `data/`. Then update `DATA_PATH` in the K0 cell:
-
-```python
-DATA_PATH = Path("data/real-time-energy-prices-for-nigeria.csv")
-```
-
-### 5. Launch Jupyter
-
-```bash
-jupyter lab
-```
-
-Open `nigeria_fuel_price.ipynb` and run all cells top-to-bottom (`Kernel → Restart & Run All`).
-
----
-
-## Data Sources
-
-This project uses **exclusively real, verified data sources** with no synthetic or randomly generated data:
-
-| Feature | Source | File | Period |
-|---|---|---|---|
-| Fuel Price (OHLC, trust) | WFP Real-Time Energy Prices | Embedded in data pipeline | Jan 2007 – Apr 2026 |
-| USD/NGN Exchange Rate | Historical FX data | `USD_NGN Historical Data.csv` | Full period available |
-| Brent Crude Price (USD/bbl) | FRED (DCOILBRENTEU) | `DCOILBRENTEU.csv` | Full period available |
-
-### Data Integrity Checks
-- All time-series data has been validated for temporal continuity and outlier detection
-- Missing values handled via forward-fill (standard for FX/commodity data)
-- No imputation or synthetic data generation used
-- Full audit trail maintained in DuckDB SQL layer
-
----
-
-## Outputs
-
-After running all kernels the following files are produced:
-
-| File | Description |
-|---|---|
-| `best_nigeria_lstm.pt` | Best model checkpoint (PyTorch `state_dict`) |
-| `nigeria_fuel_engineered_features.csv` | Full 17k-row feature table with all engineered columns |
-| `nigeria_fuel_3m_forecast.csv` | 3-month forward price forecast with MoM % and alert flag |
-
-### Sample Forecast Output
-
-```
-════════════════════════════════════════════════════
-  🔮  3-MONTH FORWARD FORECAST — EARLY WARNING SYSTEM
-════════════════════════════════════════════════════
-  May 2026  →  ₦  1,021.40   (+2.1%)  ✅ STABLE
-  Jun 2026  →  ₦  1,058.30   (+5.9%)  ⚠️  SPIKE WARNING
-  Jul 2026  →  ₦  1,044.10   (+4.4%)  ✅ STABLE
-════════════════════════════════════════════════════
-```
-
-A "SPIKE WARNING" (MoM > 5%) gives MSMEs a 30-day window to hedge logistics costs or adjust pricing strategies before margin erosion occurs.
-
----
-
-## Model Architecture
-
-```
-NigeriaFuelLSTM
-═══════════════════════════════════════════════════
-Input shape:   (batch, 6, 14)     ← 6-month window, 14 features
-
-LSTM Layer 1:  hidden=128, dropout=0.25
-LSTM Layer 2:  hidden=128, dropout=0.25
-                      │
-               Last time-step hidden state  →  (batch, 128)
-                      │
-               Dropout(0.25)
-               Linear(128 → 64)
-               ReLU
-               Linear(64 → 1)
-                      │
-Output:        (batch, 1)         ← scaled price_close
-═══════════════════════════════════════════════════
-
-Loss:          TrustWeightedMSE  L = mean(trust_norm × (ŷ − y)²)
-Optimiser:     AdamW  (lr=1e-3, weight_decay=1e-4)
-Scheduler:     ReduceLROnPlateau  (factor=0.5, patience=6)
-Early stop:    Patience = 12 epochs
-Grad clipping: max_norm = 1.0
-```
-
----
-
-## Results
-
-> Note: Final numeric results will appear after training on the full post-subsidy dataset with real exogenous data. The table below shows representative targets for a Distinction-grade submission.
-
-| Metric | Target | Description |
+| **Overview** | KPI cards, the national index with low–high band and policy periods, optional USD/NGN and Brent overlays, period summary | date-range calendar, quick-range presets, driver multiselect, log-scale switch |
+| **Market Explorer** | Compare states or individual markets as prices, rebased indices, premiums or YoY change; OHLC candlesticks; change ranking | date range, states/markets multiselects, measure select |
+| **Regional Disparity** | Market map, state ranking against the regulated-era baseline, state × year premium heatmap | date range, metric select, highlight-states multiselect |
+| **Price Shocks** | Shock months above an adjustable threshold, share of markets hit, rolling volatility, planning rule of thumb | date range, series select, threshold slider, window select |
+| **Structural Breaks** | Live PELT change-point detection with penalty-sensitivity chart and regime statistics | series, cost function, penalty, minimum segment length |
+| **Price Drivers** | Petrol vs exchange-rate/Brent changes: scatter with fits per period, correlation by lead time, rolling correlation, full r/p/β table | date range, series, driver, lead, periods multiselect |
+| **Forecast Models** | Actual vs forecasts, cumulative error, metrics recomputed for any window, 3-month ARIMA outlook with interval | evaluation set, window calendar, models multiselect, rank-by select |
+| **Data & Method** | Coverage KPIs and caveats, market map and register, pipeline summary | states multiselect, colour-by select |
+
+Every page includes *insight* callouts that are recalculated from the current selection, for example which state rose fastest in the chosen range, or which model is best in the chosen window.
+
+## Data sources
+
+| Data | File | Notes |
 |---|---|---|
-| MAE | < ₦30/L | Mean absolute price error |
-| RMSE | < ₦45/L | Penalises large outlier spikes |
-| MAPE | < 5% | % error relative to actual price |
-| R² | > 0.90 | Explained variance on test set |
+| Petrol prices (monthly OHLC, YoY inflation, trust score), Jan 2007 – Apr 2026 | `data/raw/real-time-energy-prices-for-nigeria.csv` | *Real-Time Energy Prices — Nigeria*, Humanitarian Data Exchange (HDX). Layout follows the World Bank Real-Time Prices methodology (Andrée, 2021). |
+| USD/NGN monthly close | `data/raw/USD_NGN Historical Data.csv` | Investing.com export. Dates are **day-first** (`01/04/2026` = April 2026). |
+| Brent crude, daily (USD/bbl) | `data/raw/DCOILBRENTEU.csv` | FRED series `DCOILBRENTEU`, averaged to monthly. |
 
----
+## Notebook sections
 
-## Policy Applications
-
-| Stakeholder | Use Case | Kernel |
+| Section | Content | Main outputs |
 |---|---|---|
-| **FCCPC** | Distinguish price manipulation from genuine cost pass-through | K4 |
-| **MSMEs / VentureRoot** | 30-day early-warning system for logistics cost hedging | K5, K10 |
-| **Federal Government / NNPCL** | Identify regions requiring targeted fuel subsidy interventions | K6 |
-| **CBN / Monetary Policy** | Quantify fuel-driven cost-push inflation pressure | K5 |
-| **NBS** | Validate reported price series against WFP trust-weighted estimates | K2, K9 |
+| K0 | Set-up | – |
+| K1 | Ingestion and profiling (SQL) | series types, market coverage |
+| K2 | Quality audit and cleaning (SQL) | `clean_fuel_prices`, plausibility check |
+| K3 | Feature engineering (SQL window functions) | `market_features`, `state_monthly`, `national_monthly`; `k3_index_check.png` |
+| K4 | Insight 1: price regimes and market structure | `k4_price_regimes.png`, `k4_period_stats.csv`, `k4_driver_correlations.csv` |
+| K5 | Insight 2: price shocks and volatility | `k5_price_shocks.png` |
+| K6 | Insight 3: regional disparity | `k6_regional_disparity.png`, `k6_state_premiums.csv` |
+| K7 | Insight 4: structural breaks (PELT) | `k7_structural_breaks.png` |
+| K8 | Insight 5: forecasting set-up | chronological split, scaling on training data only |
+| K9 | Insight 6: LSTM with trust-weighted loss | `k9_loss_curves.png`, `outputs/models/*.pt` |
+| K10 | Benchmark evaluation and 3-month forecast | `k10_test_forecasts.png`, `k10_forward_forecast.png`, `k10_*_results.csv`, `k10_predictions.csv`, `k10_forecast_3m.csv` |
 
----
+## Limitations
 
-## Thesis Citation
-
-If you use this codebase or methodology in academic work, please cite as:
-
-```bibtex
-@mastersthesis{nigeria_fuel_intelligence_2026,
-  author  = {[Your Name]},
-  title   = {Nigeria Retail Fuel Price Intelligence System:
-             A Multivariate LSTM Approach with Trust-Weighted Training
-             for Post-Subsidy Market Forecasting},
-  school  = {[Your Institution]},
-  year    = {2026},
-  type    = {Postgraduate Diploma Dissertation},
-}
-```
-
----
+* Prices are estimates and appear to understate official post-2023 pump prices.
+* Coverage is limited to 14 states, mostly in the north-east.
+* The post-subsidy sample is short (35 months), so tests have low power.
+* The trust score is almost constant, so trust weighting cannot be evaluated properly on this data.
 
 ## References
 
-| # | Citation |
-|---|---|
-| 1 | Hochreiter, S., & Schmidhuber, J. (1997). Long short-term memory. *Neural Computation*, 9(8), 1735–1780. |
-| 2 | Killick, R., Fearnhead, P., & Eckley, I. A. (2012). Optimal detection of changepoints with a linear computational cost. *Journal of the American Statistical Association*, 107(500), 1590–1598. |
-| 3 | World Food Programme (2024). *WFP VAM Real-Time Monitoring — Energy Price Data, Nigeria*. VAM Food Security Analysis. |
-| 4 | National Bureau of Statistics Nigeria (2026). *Petrol Price Watch*. NBS. |
-| 5 | Stanbic IBTC Bank (2026). *Nigeria PMI Monthly Report*. S&P Global Market Intelligence. |
-| 6 | Dangote Group (2024). *Dangote Petroleum Refinery — Commercial Operations Update*. |
-
----
-
-## License
-
-This project is licensed under the **MIT License** — see [LICENSE](LICENSE) for details.
-
----
-
-<div align="center">
-
-Built for academic distinction. Designed for real-world policy impact.
-
-**Nigeria Fuel Price Intelligence System** ·  Dissertation · 2026
-
-</div>
+* Andrée, B. P. J. (2021). *Estimating Food Price Inflation from Partial Surveys.* World Bank Policy Research Working Paper 9886.
+* Diebold, F. X., & Mariano, R. S. (1995). Comparing predictive accuracy. *Journal of Business & Economic Statistics*, 13(3).
+* Harvey, D., Leybourne, S., & Newbold, P. (1997). Testing the equality of prediction mean squared errors. *International Journal of Forecasting*, 13(2).
+* Hochreiter, S., & Schmidhuber, J. (1997). Long short-term memory. *Neural Computation*, 9(8).
+* Killick, R., Fearnhead, P., & Eckley, I. A. (2012). Optimal detection of changepoints with a linear computational cost. *JASA*, 107(500).
+* Makridakis, S., Spiliotis, E., & Assimakopoulos, V. (2018). Statistical and machine learning forecasting methods: Concerns and ways forward. *PLOS ONE*, 13(3).

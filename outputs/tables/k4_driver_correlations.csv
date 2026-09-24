@@ -1,0 +1,13 @@
+period,driver,months,r,p_value
+Regulated,fx,194,0.043,0.55
+Regulated,fx_lag1,194,0.12,0.096
+Regulated,brent_ngn,194,0.169,0.019
+Regulated,brent_ngn_lag1,194,0.28,0.0
+Post-subsidy (import),fx,15,0.455,0.089
+Post-subsidy (import),fx_lag1,15,0.274,0.323
+Post-subsidy (import),brent_ngn,15,0.318,0.248
+Post-subsidy (import),brent_ngn_lag1,15,0.037,0.897
+Post-subsidy (domestic refining),fx,20,-0.086,0.719
+Post-subsidy (domestic refining),fx_lag1,20,0.156,0.512
+Post-subsidy (domestic refining),brent_ngn,20,0.304,0.193
+Post-subsidy (domestic refining),brent_ngn_lag1,20,0.009,0.968

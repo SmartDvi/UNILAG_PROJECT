@@ -1,0 +1,4 @@
+month,arima_forecast,lower_95,upper_95,change_vs_last_pct,lstm_forecast,month_on_month_pct,shock_alert
+2026-05,705.55,666.84,746.51,1.26,686.76,1.26,no
+2026-06,713.07,647.23,785.61,2.34,663.5,1.07,no
+2026-07,720.12,631.96,820.59,3.35,635.63,0.99,no

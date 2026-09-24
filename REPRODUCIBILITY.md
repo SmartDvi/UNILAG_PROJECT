@@ -1,258 +1,88 @@
-# 🔄 Reproducibility Guide
+# Reproducibility Guide
 
-## Quick Start (30 Minutes)
+## Requirements
 
-### Prerequisites
+* Python 3.10 or newer (developed on 3.12)
+* About 1 GB of free disk space for PyTorch; no GPU needed
+
+## Set-up
+
 ```bash
-# Python 3.10+
-python --version
-
-# Install dependencies
-pip install -r requirements.txt
-# OR
-pip install -e .
+cd UNI_LAG_PROJECT
+uv venv && source .venv/bin/activate        # or: python -m venv .venv && source .venv/bin/activate
+uv pip install -r requirements.txt          # or: pip install -r requirements.txt
 ```
 
-### Run the Full Pipeline
+All input data is already in `data/raw/`. Nothing needs downloading and there are no absolute paths.
+
+## Run
+
 ```bash
-# Option 1: Via Jupyter (interactive, shows plots)
-jupyter notebook nigeria_fuel_price.ipynb
+python main.py --test     # unit tests, then executes the notebook in place (~1 minute on CPU)
+```
 
-# Option 2: Via CLI (non-interactive, generates all artifacts)
-python main.py --run-all
+Equivalent manual steps:
 
-# Option 3: Via nbconvert (fastest, no browser)
+```bash
+python -m pytest -q
 jupyter nbconvert --to notebook --execute --inplace nigeria_fuel_price.ipynb
 ```
 
-### Expected Output
-After execution, you should see:
+For interactive work, start `jupyter lab` **from the project root** (the notebook imports `src/` relative to the working directory) and choose *Restart Kernel and Run All Cells*.
 
-**Console Output:**
-```
-✅ Imports complete. DuckDB: 0.10.X | PyTorch: 2.X.X | Ruptures: 1.1.9
+## Dashboard
 
-✅ Table created and saved to nigeria_fuel.duckdb
-✅ clean_fuel_prices created — 17,168 rows
-✅ Feature table: 17,168 rows × 36 columns
-
-🚀 Starting LSTM Training
-...training progress table...
-⏹  Early stopping at epoch 45
-
-✅ Training complete.
-
-📊 TEST SET EVALUATION METRICS
-   Mean Absolute Error (MAE):              ₦XX.XX/L
-   Root Mean Squared Error (RMSE):         ₦XX.XX/L
-   Mean Absolute % Error (MAPE):           X.XX%
-   
-🔮 3-MONTH FORWARD FORECAST
-   Jun 2026 | ₦XXX.XX | 95% CI [XX, XX] | +X.X% | STATUS
-
-🔬 REPRODUCIBILITY & ARTIFACT VALIDATION
-✅ All artifacts present and ready for dissertation submission!
+```bash
+python main.py --dashboard      # http://127.0.0.1:8050
 ```
 
-**Generated Files:**
-```
-nigeria_fuel.duckdb                  # Persistent DuckDB database
-best_nigeria_lstm.pt                 # Best model checkpoint
-nigeria_fuel_engineered_features.csv # Feature table (for analysis)
-nigeria_fuel_3m_forecast.csv         # 3-month forecast (for stakeholders)
+The dashboard needs the CSVs in `outputs/tables/`, so run the notebook first. It stops with a clear message if they are missing. Map tiles load from the internet (CARTO); everything else works offline.
 
-k4_duopoly_analysis.png              # Market structure shift
-k5_msme_volatility.png               # Volatility squeeze analysis
-k6_regional_disparity.png            # State-level price gaps
-k7_structural_break.png              # PELT breakpoint detection
-k9_trust_weighted_loss.png           # Loss weighting visualization
-k10_loss_curve.png                   # Training convergence
-k10_evaluation.png                   # Actual vs predicted plots
-```
+## What gets generated
 
----
+| Location | Contents |
+|---|---|
+| `data/processed/nigeria_fuel.duckdb` | Database with `raw_fuel_prices`, `clean_fuel_prices`, `market_features`, `state_monthly`, `national_monthly`, `usd_ngn_monthly`, `brent_monthly` |
+| `outputs/figures/` | `k3_index_check`, `k4_price_regimes`, `k5_price_shocks`, `k6_regional_disparity`, `k7_structural_breaks`, `k9_loss_curves`, `k10_test_forecasts`, `k10_forward_forecast` (PNG) |
+| `outputs/tables/` | Period statistics, driver correlations, state premiums, validation and test results, 3-month forecast, national and market feature tables (CSV) |
+| `outputs/models/` | `lstm_h64_seed{0..4}.pt`: LSTM state dicts |
 
-## Detailed Execution Steps
+## Expected key numbers
 
-### Step 1: Environment Setup (K0)
-- Installs all packages via pip
-- Imports libraries
-- Sets SEED=42 for reproducibility
-- Configures matplotlib/seaborn styles
+A correct run reproduces these exactly:
 
-### Step 2: Data Ingestion (K1–K2)
-- Loads CSV into DuckDB persistent database
-- Validates schema (55 columns → 8 usable)
-- Performs null audit (100% OHLC coverage)
-- Creates `clean_fuel_prices` table
+| Check | Value |
+|---|---|
+| Clean table | 15,544 rows, 67 markets, 14 states |
+| PELT breaks (penalty 1.0) | Mar 2016, Jan 2022, Dec 2023 |
+| Sample split | train 176 / validation 24 / test 24 |
+| ARIMA order | (1, 0, 0) |
+| Selected LSTM hidden size | 64 |
+| Test MAPE: naive / ARIMA / LSTM | 2.269% / 1.939% / 2.744% |
+| May 2026 ARIMA forecast | ₦705.55 |
 
-### Step 3: Feature Engineering (K3)
-- Applies SQL window functions for lagged features
-- Computes OHLC derivatives (spread, momentum)
-- Calculates rolling statistics (3m, 12m)
-- Creates cyclical time encoding (sin/cos for months)
-- Generates `engineered_features` table (36 columns)
+Determinism comes from fixed seeds (`SEED = 42`), `torch.use_deterministic_algorithms(True)` and a seeded mini-batch shuffle. Different PyTorch or BLAS versions, or a GPU, may change the LSTM numbers in the last decimals. The statistical benchmarks and all SQL results do not depend on these settings.
 
-### Step 4–7: Exploratory Analysis (K4–K7)
-- **K4:** Duopoly market structure analysis
-- **K5:** MSME volatility squeeze analysis
-- **K6:** Regional price disparity mapping
-- **K7:** PELT structural break detection
+## Data provenance
 
-### Step 8–9: Model Building (K8–K9)
-- Loads exogenous data (USD/NGN FX, Brent Crude)
-- Creates sliding-window dataset
-- Initializes 2-layer LSTM
-- Defines trust-weighted loss function
+| File | SHA-256 |
+|---|---|
+| `real-time-energy-prices-for-nigeria.csv` | `4e4a4e3ab97f62eb27d3b6521fc631d9dd50ea8364df38528fd80790bc0dc7c5` |
+| `USD_NGN Historical Data.csv` | `ec409ed23588714e2dffcb98cc413362b33abd4e6d41733fbf69d5e9c928c8c5` |
+| `DCOILBRENTEU.csv` | `2bf63bb2e0b32e886d886c9b81439fc2c013aa79877b21bdb9135d6efbbd5397` |
 
-### Step 10: Training & Evaluation (K10)
-- **Trains LSTM with detailed epoch-by-epoch logging** (new!)
-- Visualises loss convergence
-- Generates predictions on test set
-- Computes MAPE, MAE, RMSE, R²
-- Creates actual vs predicted plots
-- Generates 3-month forecast with confidence intervals
-- **Validates all artifacts** (new!)
-- Prints model card summary
+Check with `sha256sum data/raw/*`. If you download newer versions of these files, the results will change. Re-run the notebook and update the write-up.
 
----
+## Tests
 
-## Troubleshooting
+`tests/test_dashboard.py` calls every dashboard callback with a range of control settings and checks that the output serialises; it is skipped if the notebook outputs are missing.
 
-### Error: "DuckDB database locked"
-```
-Solution: Delete old .duckdb files and restart
-rm nigeria_fuel.duckdb*
-jupyter restart kernel
-```
+`tests/test_pipeline.py` covers the parts where silent errors are most likely:
 
-### Error: "CUDA out of memory"
-```
-Solution: CPU is fine for this model size (~200K params)
-DEVICE will automatically fall back to CPU
-```
-
-### Error: "FileNotFoundError: best_nigeria_lstm.pt"
-```
-Solution: Training must complete before evaluation runs
-Ensure training cell completes without errors
-```
-
-
-
-### Slow training on CPU?
-```
-Expected: ~2–3 minutes total (60 epochs)
-Reason: 60 epochs × 16 batch size × ~10 batches
-Improvement: Install GPU (CUDA for NVIDIA; ROCm for AMD)
-```
-
----
-
-## Data Integrity Checks
-
-Run this Python snippet to verify data integrity:
-
-```python
-import duckdb
-import pandas as pd
-
-con = duckdb.connect("nigeria_fuel.duckdb")
-
-# Check table exists and has rows
-count = con.execute("SELECT COUNT(*) FROM engineered_features").fetchone()[0]
-print(f"✅ Engineered features: {count:,} rows")
-
-# Check no NaNs in target variable
-nans = con.execute("""
-    SELECT COUNT(*) FROM engineered_features 
-    WHERE price_close IS NULL
-""").fetchone()[0]
-print(f"✅ NaNs in target: {nans}")
-
-# Check model file
-import os
-if os.path.exists("best_nigeria_lstm.pt"):
-    size_mb = os.path.getsize("best_nigeria_lstm.pt") / (1024**2)
-    print(f"✅ Model checkpoint: {size_mb:.1f} MB")
-
-# Check forecast
-forecast_df = pd.read_csv("nigeria_fuel_3m_forecast.csv")
-print(f"✅ Forecast rows: {len(forecast_df)}")
-print(forecast_df)
-```
-
----
-
-## Performance Expectations
-
-### Training
-- **Time:** 2–3 minutes on CPU (M1 Mac: ~45 sec)
-- **Memory:** ~1–2 GB RAM
-- **Convergence:** Early stop at ~45 epochs (PATIENCE=10)
-
-### Inference
-- **Test Set:** 42 samples → predictions in <1 sec
-- **3-Month Forecast:** Generated in <100ms
-
-### Model Quality
-- **MAPE:** Target <5% (production-grade)
-- **R²:** Target >0.80 (explains 80%+ variance)
-- **RMSE:** ±₦XX/L (depends on regime volatility)
-
----
-
-## Reproducibility Notes
-
-### Random Seeding
-```python
-SEED = 42
-np.random.seed(SEED)
-torch.manual_seed(SEED)
-```
-All stochastic operations use this seed. Results are **deterministic** across runs.
-
-### Data Leakage Prevention
-✅ Scalers fit on train set only, applied to test  
-✅ Early stopping monitors validation loss only  
-✅ Test dates strictly after train dates (temporal split)  
-✅ No information flows from test to train  
-
-### Exogenous Data
-- USD/NGN: Real FRED/CBN historical data (daily → monthly aggregation)
-- Brent Crude: Real FRED historical data (daily → monthly aggregation)
-
-### Computational Reproducibility
-- PyTorch: Deterministic algorithms enabled where possible
-- NumPy: Fixed random seed (SEED=42)
-- Pandas: No randomisation (deterministic operations)
-
----
-
-## Citation
-
-If you use this pipeline in your work:
-
-```bibtex
-@software{nigeria_fuel_2026,
-  author = {Your Name},
-  title = {Nigeria Retail Fuel Price Intelligence System},
-  year = {2026},
-  url = {https://github.com/your-username/uni-lag-project},
-  note = {End-to-end ML pipeline for fuel price forecasting}
-}
-```
-
----
-
-## Support
-
-For issues, check:
-1. **requirements.txt** installed correctly
-2. **SEED=42** set before training
-3. **Database file** not corrupted (try deleting & regenerating)
-4. **GPU/CUDA** not required (CPU works fine)
-
-**Last tested:** May 11, 2026  
-**Python version:** 3.10–3.12  
-**OS:** Linux, macOS, Windows (via WSL2)
+* USD/NGN dates parse day-first, giving one row per month with no gaps
+* Brent monthly averages cover every month
+* sliding windows never include the target month (no look-ahead)
+* returns convert back to the exact prices
+* the train, validation and test splits are chronological and do not overlap
+* the trust-weighted loss equals MSE when trust is constant
+* metric values and the Diebold–Mariano test behave as expected
