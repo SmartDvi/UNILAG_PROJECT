@@ -80,7 +80,8 @@ To work interactively, run `jupyter lab` **from the project root** and open the 
 A multipage web app built with **Dash**, **Dash Mantine Components** (layout, inputs, cards) and **Dash AG Grid** (every table: sortable, filterable, paginated, CSV export). It reads the tables the notebook writes to `outputs/tables/`, so run the notebook first.
 
 ```bash
-python main.py --dashboard            # or: python -m dashboard.app [--debug] [--port 8050]
+cd dashboard
+python app.py --dashboard            # or: python -m dashboard.app [--debug] [--port 8050]
 ```
 
 | Page | What you can do | Controls |
