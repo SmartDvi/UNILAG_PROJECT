@@ -33,7 +33,8 @@ For interactive work, start `jupyter lab` **from the project root** (the noteboo
 ## Dashboard
 
 ```bash
-python main.py --dashboard      # http://127.0.0.1:8050
+cd dashboard
+python app.py --dashboard      # http://127.0.0.1:8050
 ```
 
 The dashboard needs the CSVs in `outputs/tables/`, so run the notebook first. It stops with a clear message if they are missing. Map tiles load from the internet (CARTO); everything else works offline.
