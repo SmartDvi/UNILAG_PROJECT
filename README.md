@@ -5,6 +5,10 @@ Regime analysis, regional disparity and short-term forecasting of retail petrol 
 The full analysis, with code, figures and interpretation, is in [nigeria_fuel_price.ipynb](nigeria_fuel_price.ipynb). An interactive, multipage [dashboard](#dashboard) lets readers explore the results themselves.
 
 ---
+Project Dashboard Demo
+Asset/Screencast from 2026-09-28 14-55-55.webm
+
+---
 
 ## Key findings
 
